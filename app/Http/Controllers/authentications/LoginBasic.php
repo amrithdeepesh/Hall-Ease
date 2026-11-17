@@ -40,10 +40,10 @@ class LoginBasic extends Controller
                 'email',
                 function ($attribute, $value, $fail) {
                     $lowerValue = strtolower($value);
-                    if ($lowerValue === 'admin@example.com') return; // Allow legacy admin
+                    if (in_array($lowerValue, ['admin@example.com', 'staff@example.com', 'media@example.com'], true)) return; // Allow legacy accounts
                     
                     if (!str_ends_with($lowerValue, '@staloysius.edu.in')) {
-                        $fail('pls use institution email id to login or create account or register');
+                        $fail('Please use an institutional email address (@staloysius.edu.in) to log in.');
                     }
                 },
             ],

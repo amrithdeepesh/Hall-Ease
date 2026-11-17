@@ -13,7 +13,7 @@ class CustomerController extends Controller
      */
     public function index()
     {
-        $customers = User::where('role', 'customer')
+        $customers = User::whereIn('role', ['user', 'customer'])
             ->withCount('bookings')
             ->latest()
             ->paginate(10);
@@ -26,7 +26,7 @@ class CustomerController extends Controller
      */
     public function show(User $customer)
     {
-        if ($customer->role !== 'customer') {
+        if (!in_array($customer->role, ['user', 'customer'])) {
             abort(404);
         }
 
@@ -43,7 +43,7 @@ class CustomerController extends Controller
      */
     public function destroy(User $customer)
     {
-        if ($customer->role === 'customer') {
+        if (in_array($customer->role, ['user', 'customer'])) {
 
             // Optional: Prevent delete if active bookings exist
             if ($customer->bookings()->where('booking_status', 'confirmed')->exists()) {

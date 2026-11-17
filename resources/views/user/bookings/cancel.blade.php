@@ -100,8 +100,8 @@
                     <h6 class="mb-3 mt-4">Please provide a reason for cancellation:</h6>
                     
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="radio" name="cancellation_reason_option" id="reason_postponded" value="postponded" required>
-                        <label class="form-check-label" for="reason_postponded">Postponed</label>
+                        <input class="form-check-input" type="radio" name="cancellation_reason_option" id="reason_postponed" value="postponed" required>
+                        <label class="form-check-label" for="reason_postponed">Postponed</label>
                     </div>
                     <div class="form-check mb-2">
                         <input class="form-check-input" type="radio" name="cancellation_reason_option" id="reason_event_cancelled" value="event_cancelled" required>

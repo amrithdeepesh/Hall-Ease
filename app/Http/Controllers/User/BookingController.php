@@ -128,10 +128,10 @@ class BookingController extends Controller
             'event_department' => 'required|string|max:255',
             'event_type' => 'required|string|max:255',
             'coordinator_name' => 'required|string|max:255',
-            'coordinator_phone' => 'required|string|max:20',
+            'coordinator_phone' => ['required', 'string', 'max:20', 'regex:/^[0-9\-\+\s]{7,20}$/'],
             'coordinator_department' => 'required|string|max:255',
             'coordinator_email' => 'required|email|max:255',
-            'coordinator_emergency_number' => 'required|string|max:20',
+            'coordinator_emergency_number' => ['required', 'string', 'max:20', 'regex:/^[0-9\-\+\s]{7,20}$/'],
             'media_requirements' => 'nullable|array',
             'media_requirements.*' => 'in:photography,videography,livestreaming,reels,photos,others',
             'media_requirements_other' => 'nullable|string|max:500',
@@ -139,7 +139,16 @@ class BookingController extends Controller
             'resources.*' => 'in:projector,mic,tables,chairs,saplings,water_bottles,other',
             'resources_other' => 'nullable|string|max:500',
             'details_confirmation' => 'accepted',
+        ], [
+            'coordinator_phone.regex' => 'Please enter a valid phone number (digits, spaces, hyphens or + only).',
+            'coordinator_emergency_number.regex' => 'Please enter a valid emergency contact number.',
         ]);
+
+        // Validate that hall is available and not in maintenance
+        $hall = Hall::where('id', $request->hall_id)->where('status', 'available')->first();
+        if (!$hall) {
+            return back()->with('error', 'The selected hall is currently under maintenance or unavailable.')->withInput();
+        }
 
         // Build full datetime from separate date + time fields
         $startDatetime = Carbon::parse($request->start_date . ' ' . $request->start_time);
@@ -177,7 +186,7 @@ class BookingController extends Controller
                 ->withInput();
         }
 
-        // 🔥 Stricter availability check with 30-minute buffer using datetime range
+        // Stricter availability check with 30-minute buffer using datetime range
         $availability = Booking::isSlotAvailable($request->hall_id, $startDatetime, $endDatetime);
         if (!$availability['available']) {
             return back()->with('error', $availability['message'])->withInput();
@@ -216,15 +225,29 @@ class BookingController extends Controller
             $bookingData['created_by'] = Auth::id();
         }
 
-        $booking = Booking::create($bookingData);
-
-        // Notify Admins
-        $admins = User::where('role', 'admin')->get();
-        foreach ($admins as $admin) {
-            $admin->notify(new NewBookingRequest($booking));
+        try {
+            $booking = DB::transaction(function () use ($request, $startDatetime, $endDatetime, $bookingData) {
+                $availability = Booking::isSlotAvailable($request->hall_id, $startDatetime, $endDatetime);
+                if (!$availability['available']) {
+                    throw new \Exception($availability['message']);
+                }
+                return Booking::create($bookingData);
+            });
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage())->withInput();
         }
 
-        return redirect()->route('user.bookings.create')
+        // Notify Admins safely without crashing the request if mail is down
+        try {
+            $admins = User::where('role', 'admin')->get();
+            foreach ($admins as $admin) {
+                $admin->notify(new NewBookingRequest($booking));
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to send NewBookingRequest notification: ' . $e->getMessage());
+        }
+
+        return redirect()->route('user.bookings.index')
             ->with('success', 'Booking request submitted successfully.');
     }
 
@@ -235,7 +258,7 @@ class BookingController extends Controller
     {
         $validated = $request->validate([
             'booking_id' => 'required|integer|exists:bookings,id',
-            'cancellation_reason_option' => 'required|in:postponded,event_cancelled,low_participation,other',
+            'cancellation_reason_option' => 'required|in:postponed,postponded,event_cancelled,low_participation,other',
             'cancellation_reason_other' => 'nullable|string|max:500|required_if:cancellation_reason_option,other',
         ]);
 
@@ -260,7 +283,8 @@ class BookingController extends Controller
         }
 
         $reasonLabels = [
-            'postponded' => 'Postponded',
+            'postponed' => 'Postponed',
+            'postponded' => 'Postponed',
             'event_cancelled' => 'Event Cancelled',
             'low_participation' => 'Low Participation',
             'other' => 'Other',
@@ -277,23 +301,27 @@ class BookingController extends Controller
             'booking_status' => 'cancelled',
         ]);
 
-        // Notify Admin that user cancelled
-        $admins = \App\Models\User::where('role', 'admin')->get();
-        foreach ($admins as $admin) {
-            $admin->notify(new \App\Notifications\BookingStatusUpdated($booking, 'user', 'cancelled'));
-        }
-
-        // Notify Media ONLY if media was requested AND it was already approved (so they know about it)
-        if ($booking->requiresMedia() && $booking->admin_status === 'approved') {
-            $mediaUsers = \App\Models\User::where('role', 'media')->get();
-            foreach ($mediaUsers as $mediaUser) {
-                $mediaUser->notify(new \App\Notifications\BookingStatusUpdated($booking, 'user_media', 'cancelled'));
+        // Notify Admin that user cancelled safely
+        try {
+            $admins = \App\Models\User::where('role', 'admin')->get();
+            foreach ($admins as $admin) {
+                $admin->notify(new \App\Notifications\BookingStatusUpdated($booking, 'user', 'cancelled'));
             }
+
+            // Notify Media ONLY if media was requested AND it was already approved (so they know about it)
+            if ($booking->requiresMedia() && $booking->admin_status === 'approved') {
+                $mediaUsers = \App\Models\User::where('role', 'media')->get();
+                foreach ($mediaUsers as $mediaUser) {
+                    $mediaUser->notify(new \App\Notifications\BookingStatusUpdated($booking, 'user_media', 'cancelled'));
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to send booking cancellation notification: ' . $e->getMessage());
         }
 
         return redirect()
-            ->route('user.bookings.cancel.form')
-            ->with('success', 'Booking cancellation details submitted successfully.');
+            ->route('user.bookings.index')
+            ->with('success', 'Booking has been successfully cancelled.');
     }
 
     /**

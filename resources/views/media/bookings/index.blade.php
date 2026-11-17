@@ -9,7 +9,7 @@
     @endif
 
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="mb-0">Media Dashbaord - Requests</h4>
+        <h4 class="mb-0">Media Dashboard - Requests</h4>
     </div>
 
     <div class="card">

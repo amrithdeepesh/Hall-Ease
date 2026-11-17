@@ -41,8 +41,10 @@ class ForgotPasswordBasic extends Controller
                 'required',
                 'email',
                 function ($attribute, $value, $fail) {
-                    if (strtolower($value) !== 'admin@example.com' && !str_ends_with(strtolower($value), '@staloysius.edu.in')) {
-                        $fail('pls use institution email id to login or create account or register');
+                    $lowerValue = strtolower($value);
+                    if (in_array($lowerValue, ['admin@example.com', 'staff@example.com', 'media@example.com'], true)) return;
+                    if (!str_ends_with($lowerValue, '@staloysius.edu.in')) {
+                        $fail('Please use an institutional email address (@staloysius.edu.in).');
                     }
                 },
             ],

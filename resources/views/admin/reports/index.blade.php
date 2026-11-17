@@ -41,10 +41,6 @@
                 </div>
                 <div class="card-body">
                     <div class="list-group">
-                        <a href="{{ route('admin.reports.revenue') }}" class="list-group-item list-group-item-action">
-                            <h6 class="mb-1">Revenue Report</h6>
-                            <p class="mb-0 text-muted">View detailed revenue by date</p>
-                        </a>
                         <a href="{{ route('admin.reports.bookings') }}" class="list-group-item list-group-item-action">
                             <h6 class="mb-1">Bookings Report</h6>
                             <p class="mb-0 text-muted">View all bookings and their status</p>

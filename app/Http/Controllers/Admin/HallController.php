@@ -199,6 +199,15 @@ class HallController extends Controller
      */
     public function destroy(Hall $hall)
     {
+        $hasActiveBookings = $hall->bookings()
+            ->whereNotIn('booking_status', ['cancelled', 'rejected'])
+            ->where('end_datetime', '>=', now())
+            ->exists();
+
+        if ($hasActiveBookings) {
+            return back()->with('error', 'Cannot delete this hall because it has active or upcoming bookings. Please cancel or reassign them first.');
+        }
+
         foreach ($hall->images as $image) {
             Storage::disk('public')->delete($image->image_path);
             $image->delete();

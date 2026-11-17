@@ -85,9 +85,13 @@ class RegisterBasic extends Controller
             'reg_resend_count' => 0,
         ]);
 
-        // Send OTP email
-        Notification::route('mail', $validated['email'])
-            ->notify(new EmailVerificationOtp($otp, $validated['name']));
+        // Send OTP email safely
+        try {
+            Notification::route('mail', $validated['email'])
+                ->notify(new EmailVerificationOtp($otp, $validated['name']));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to send EmailVerificationOtp: ' . $e->getMessage());
+        }
 
         return redirect()->route('register.verify')
             ->with('success', 'A verification OTP has been sent to ' . $validated['email'] . '. Please check your inbox.');
@@ -169,8 +173,12 @@ class RegisterBasic extends Controller
             session()->forget(['reg_pending', 'reg_resend_count']);
 
             if ($isMedia) {
-                $admins = User::where('role', 'admin')->get();
-                Notification::send($admins, new NewMediaUserRegistered($user));
+                try {
+                    $admins = User::where('role', 'admin')->get();
+                    Notification::send($admins, new NewMediaUserRegistered($user));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Failed to send NewMediaUserRegistered notification: ' . $e->getMessage());
+                }
 
                 return redirect()->route('login')
                     ->with('success', 'Your email has been verified! Your account is under admin review. Please wait for approval.');
@@ -217,9 +225,13 @@ class RegisterBasic extends Controller
         session()->put('reg_pending.otp_expiry', now()->addMinutes(2)->timestamp);
         session()->put('reg_resend_count', $resendCount + 1);
 
-        // Send new OTP email
-        Notification::route('mail', $pending['email'])
-            ->notify(new EmailVerificationOtp($otp, $pending['name']));
+        // Send new OTP email safely
+        try {
+            Notification::route('mail', $pending['email'])
+                ->notify(new EmailVerificationOtp($otp, $pending['name']));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to resend EmailVerificationOtp: ' . $e->getMessage());
+        }
 
         return back()->with('success', 'A new OTP has been sent to ' . $pending['email'] . '.');
     }

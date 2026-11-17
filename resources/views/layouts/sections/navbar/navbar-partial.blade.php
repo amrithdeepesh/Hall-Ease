@@ -44,13 +44,15 @@ $userInitial = strtoupper(substr(Auth::user()->name ?? 'U', 0, 1));
                     @forelse ($blocks as $blockName => $halls)
                         <li>
                             @php
-                                $role = Auth::user()->role;
+                                $role = Auth::check() ? Auth::user()->role : null;
                                 if ($role === 'admin') {
                                     $blockRoute = route('admin.halls.block', ['campus' => $campusName, 'block' => $blockName]);
                                 } elseif ($role === 'media') {
                                     $blockRoute = route('media.halls.block', ['campus' => $campusName, 'block' => $blockName]);
-                                } else {
+                                } elseif ($role === 'user') {
                                     $blockRoute = route('user.halls.block', ['campus' => $campusName, 'block' => $blockName]);
+                                } else {
+                                    $blockRoute = route('login');
                                 }
                             @endphp
                             <a class="dropdown-item" href="{{ $blockRoute }}">

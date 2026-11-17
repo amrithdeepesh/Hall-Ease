@@ -90,7 +90,8 @@
                     echo '<form action="' . e(route('admin.bookings.updateStatus', $booking->id)) . '" method="POST" class="d-inline">';
                     echo csrf_field(); echo method_field('PATCH');
                     echo '<input type="hidden" name="admin_status" value="rejected">';
-                    echo '<button class="btn btn-sm btn-danger" title="Reject" onclick="return confirm(\'Reject this booking?\')"><i class="bx bx-x"></i></button>';
+                    echo '<input type="hidden" name="rejection_reason" value="">';
+                    echo '<button class="btn btn-sm btn-danger" title="Reject" onclick="let r = prompt(\'Please enter reason for rejection (optional):\'); if (r === null) return false; this.form.rejection_reason.value = r; return true;"><i class="bx bx-x"></i></button>';
                     echo '</form>';
 
                     if ($booking->admin_status === 'pending') {

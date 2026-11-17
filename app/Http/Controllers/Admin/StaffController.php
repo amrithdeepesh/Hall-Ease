@@ -200,10 +200,18 @@ class StaffController extends Controller
      */
     public function destroy(User $staff)
     {
+        if (Auth::id() === $staff->id) {
+            return back()->with('error', 'You cannot delete your own account.');
+        }
+
+        if ($staff->role === 'admin' && User::where('role', 'admin')->count() <= 1) {
+            return back()->with('error', 'Cannot delete the only administrator account in the system.');
+        }
+
         $staff->delete();
 
         return redirect()
             ->route('admin.staff.index')
-            ->with('success', 'Staff member deleted successfully!');
+            ->with('success', 'Account deleted successfully!');
     }
 }

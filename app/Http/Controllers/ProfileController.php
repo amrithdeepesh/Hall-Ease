@@ -35,7 +35,9 @@ class ProfileController extends Controller
                 'max:255',
                 'unique:users,email,' . $user->id,
                 function ($attribute, $value, $fail) {
-                    if (!str_ends_with(strtolower($value), '@staloysius.edu.in')) {
+                    $lowerValue = strtolower($value);
+                    if (in_array($lowerValue, ['admin@example.com', 'staff@example.com', 'media@example.com'], true)) return;
+                    if (!str_ends_with($lowerValue, '@staloysius.edu.in')) {
                         $fail('Only institutional email addresses ending with @staloysius.edu.in are allowed.');
                     }
                 },

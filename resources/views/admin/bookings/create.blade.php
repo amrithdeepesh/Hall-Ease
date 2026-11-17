@@ -428,7 +428,6 @@
                             'videography' => 'Videography',
                             'livestreaming' => 'Livestreaming',
                             'reels' => 'Reels',
-                            'photos' => 'Photos',
                             'others' => 'Others'
                         ] as $value => $label)
                             <div class="form-check {{ $value === 'livestreaming' ? 'livestreaming-option' : '' }}" {!! $value === 'livestreaming' ? 'style="display: none;"' : '' !!}>

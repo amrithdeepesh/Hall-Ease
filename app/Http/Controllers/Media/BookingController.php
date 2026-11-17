@@ -25,11 +25,13 @@ class BookingController extends Controller
             
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('hall', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
-            })->orWhereHas('user', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
-            })->orWhere('id', 'like', "%{$search}%");
+            $query->where(function($q) use ($search) {
+                $q->whereHas('hall', function($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%");
+                })->orWhereHas('user', function($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%");
+                })->orWhere('id', 'like', "%{$search}%");
+            });
         }
 
         $bookings = $query->latest()
@@ -71,17 +73,20 @@ class BookingController extends Controller
             'media_remarks' => $request->media_remarks,
         ]);
 
+        // 1. Notify the Staff (Owner) safely
+        try {
+            $staff = $booking->customer ?: $booking->user;
+            if ($staff) {
+                $staff->notify(new BookingStatusUpdated($booking, 'media', $mediaStatus));
+            }
 
-        // 1. Notify the Staff (Owner)
-        $staff = $booking->customer ?: $booking->user;
-        if ($staff) {
-            $staff->notify(new BookingStatusUpdated($booking, 'media', $mediaStatus));
-        }
-
-        // 2. Notify the Admin
-        $admins = \App\Models\User::where('role', 'admin')->get();
-        foreach ($admins as $admin) {
-            $admin->notify(new BookingStatusUpdated($booking, 'media_confirmed', $mediaStatus));
+            // 2. Notify the Admin safely
+            $admins = \App\Models\User::where('role', 'admin')->get();
+            foreach ($admins as $admin) {
+                $admin->notify(new BookingStatusUpdated($booking, 'media_confirmed', $mediaStatus));
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to send media status update notification: ' . $e->getMessage());
         }
 
         return back()->with('success', 'Media action "' . ucfirst(str_replace('_', ' ', $mediaStatus)) . '" completed successfully.');

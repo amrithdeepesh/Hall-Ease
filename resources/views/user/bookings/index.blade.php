@@ -16,7 +16,7 @@
     </div>
 
     @php
-        $renderRows = function ($bookings, $showCancellationReason = false) {
+        $renderRows = function ($bookings, $showCancellationReason = false, $allowCancel = false) {
             $statusBadges = [
                 'pending' => 'warning',
                 'approved' => 'success',
@@ -70,6 +70,20 @@
                     echo '<td>' . e($booking->cancellation_reason ?? '-') . '</td>';
                 }
                 echo '<td>' . e(optional($booking->created_at)->format('M d, Y h:i A')) . '</td>';
+
+                if ($allowCancel) {
+                    $canCancel = !in_array($booking->booking_status, ['cancelled', 'completed', 'rejected']);
+                    echo '<td>';
+                    if ($canCancel) {
+                        $safeEvent = addslashes($booking->event_name ?? 'Event');
+                        $safeHall = addslashes(optional($booking->hall)->name ?? 'Hall');
+                        echo '<button type="button" class="btn btn-sm btn-outline-danger" onclick="openCancelModal(' . $booking->id . ', \'' . $safeEvent . '\', \'' . $safeHall . '\')"><i class="bx bx-x-circle me-1"></i> Cancel</button>';
+                    } else {
+                        echo '<span class="text-muted small">-</span>';
+                    }
+                    echo '</td>';
+                }
+
                 echo '</tr>';
             }
         };
@@ -91,15 +105,16 @@
                             <th>Date / Time</th>
                             <th>Status</th>
                             <th>Created On</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         @if($upcomingBookings->isEmpty())
                             <tr>
-                                <td colspan="6" class="text-center text-muted">No upcoming bookings.</td>
+                                <td colspan="7" class="text-center text-muted">No upcoming bookings.</td>
                             </tr>
                         @else
-                            {!! $renderRows($upcomingBookings) !!}
+                            {!! $renderRows($upcomingBookings, false, true) !!}
                         @endif
                     </tbody>
                 </table>
@@ -172,4 +187,63 @@
         </div>
     </div>
 </div>
+
+<!-- Direct Cancellation Modal -->
+<div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content border-danger">
+            <form action="{{ route('user.bookings.cancel.submit') }}" method="POST">
+                @csrf
+                <input type="hidden" name="booking_id" id="modal_booking_id">
+
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white" id="cancelModalTitle"><i class="bx bx-error-circle me-1"></i> Confirm Cancellation</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <strong>Warning:</strong> You are about to cancel the booking for <strong id="modal_event_name">...</strong> at <strong id="modal_hall_name">...</strong>. This action will immediately release the time slot.
+                    </div>
+
+                    <h6 class="mb-3 mt-4">Please provide a reason for cancellation:</h6>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="cancellation_reason_option" id="modal_reason_postponed" value="postponed" required>
+                        <label class="form-check-label" for="modal_reason_postponed">Postponed</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="cancellation_reason_option" id="modal_reason_event_cancelled" value="event_cancelled" required>
+                        <label class="form-check-label" for="modal_reason_event_cancelled">Event Cancelled</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="cancellation_reason_option" id="modal_reason_low_participation" value="low_participation" required>
+                        <label class="form-check-label" for="modal_reason_low_participation">Low Participation</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="radio" name="cancellation_reason_option" id="modal_reason_other" value="other" required>
+                        <label class="form-check-label" for="modal_reason_other">Other</label>
+                    </div>
+
+                    <label for="cancellation_reason_other" class="form-label mt-2">Other Reason (if selected)</label>
+                    <textarea id="cancellation_reason_other" name="cancellation_reason_other" rows="3" class="form-control" placeholder="Enter your detailed reason here"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-danger">Confirm Cancellation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openCancelModal(bookingId, eventName, hallName) {
+        document.getElementById('modal_booking_id').value = bookingId;
+        document.getElementById('modal_event_name').textContent = eventName;
+        document.getElementById('modal_hall_name').textContent = hallName;
+        
+        var myModal = new bootstrap.Modal(document.getElementById('cancelBookingModal'));
+        myModal.show();
+    }
+</script>
 @endsection

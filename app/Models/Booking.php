@@ -129,7 +129,10 @@ class Booking extends Model
         $newEnd = Carbon::parse($endDatetime);
 
         $query = self::where('hall_id', $hallId)
-            ->where('booking_status', '!=', 'cancelled');
+            ->whereNotIn('booking_status', ['cancelled', 'rejected'])
+            ->where(function ($q) {
+                $q->whereNull('admin_status')->orWhere('admin_status', '!=', 'rejected');
+            });
 
         if ($excludeBookingId) {
             $query->where('id', '!=', $excludeBookingId);
@@ -160,7 +163,10 @@ class Booking extends Model
 
         // 2. 30-Minute Gap Check (separate pass for buffer violations that aren't direct overlaps)
         $bufferBookings = self::where('hall_id', $hallId)
-            ->where('booking_status', '!=', 'cancelled')
+            ->whereNotIn('booking_status', ['cancelled', 'rejected'])
+            ->where(function ($q) {
+                $q->whereNull('admin_status')->orWhere('admin_status', '!=', 'rejected');
+            })
             ->when($excludeBookingId, fn($q) => $q->where('id', '!=', $excludeBookingId))
             ->where('start_datetime', '<', (clone $newEnd)->addMinutes(30))
             ->where('end_datetime', '>', (clone $newStart)->subMinutes(30))
